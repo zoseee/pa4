@@ -1,5 +1,6 @@
 import collections
 import sys
+import random
 
 class Process:
     def __init__(self, process_id):
@@ -13,6 +14,53 @@ class Memory:
         self.disk_references = 0
         self.dirty_writes = 0
 
+import random
+
+def RAND(processes):
+    page_faults = 0
+    disk_accesses = 0
+    dirty_page_writes = 0
+
+    # System parameters
+    main_memory = set()
+    page_table = {}
+    addressable_physical_pages = 32
+
+    for access in processes:
+        process_number, virtual_address, read_or_write = access
+
+        # Extract virtual page number
+        vpn = virtual_address >> 9 
+
+        # Check if page is in main memory
+        if vpn not in main_memory:
+            page_faults += 1
+            disk_accesses += 1
+
+            # Check if main memory is full
+            if len(main_memory) == addressable_physical_pages:
+                # Select a random victim page for replacement
+                victim_page = random.choice(list(main_memory))
+                main_memory.remove(victim_page)
+
+                # Check if the victim page was dirty
+                if page_table[victim_page]['dirty']:
+                    disk_accesses += 1  # if dirty plus 2
+                    dirty_page_writes += 1
+
+            # Load the new page into main memory
+            main_memory.add(vpn)
+
+            # Update page table entry
+            page_table[vpn] = {'dirty': False}
+
+            # Check if memory access is write
+            if read_or_write == 'W':
+                page_table[vpn]['dirty'] = True
+
+
+    data = f"Total Page Faults: {page_faults}\nTotal Disk References: {disk_accesses}\nTotal Dirty Page Writes: {dirty_page_writes}"
+    return data
 
 
 def FIFO(processes):
@@ -35,6 +83,7 @@ def FIFO(processes):
         # Check if page is in main memory
         if vpn not in main_memory:
             page_faults += 1
+            disk_accesses += 1
 
             # Check if main memory is full
             if len(main_memory) == addressable_physical_pages:
@@ -43,10 +92,8 @@ def FIFO(processes):
 
                 # Check if the oldest page was dirty
                 if page_table[oldest_page]['dirty']:
-                    disk_accesses += 2  # if dirty plus 2
+                    disk_accesses += 1  # if dirty another disk ref
                     dirty_page_writes += 1
-                else:
-                    disk_accesses +=1
 
 
             # Load the new page into main memory
@@ -60,68 +107,6 @@ def FIFO(processes):
             if read_or_write == 'W':
                 page_table[vpn]['dirty'] = True
 
-    # Calculate the total number of disk accesses (including page faults and writes)
-    #total_disk_accesses = page_faults + dirty_page_writes
-
-    data = f"Total Page Faults: {page_faults}\nTotal Disk References: {disk_accesses}\nTotal Dirty Page Writes: {dirty_page_writes}"
-    return data
-
-
-def LRU(processes):
-    page_faults = 0
-    disk_accesses = 0
-    dirty_page_writes = 0
-
-    # System parameters
-    addressable_physical_pages = 32
-    page_size = 512  # Bytes
-    virtual_address_bits = 16
-    virtual_page_bits = 7
-    offset_bits = virtual_address_bits - virtual_page_bits
-
-    for process in processes:
-        main_memory = collections.OrderedDict()
-        page_table = {i: {'dirty': False, 'reference': False, 'last_used': 0} for i in range(2 ** virtual_page_bits)}
-
-        for access in process.memory_references:
-            process_number, virtual_address, read_or_write = access
-
-            # Extract virtual page number and offset
-            vpn = (virtual_address >> offset_bits) & (2 ** virtual_page_bits - 1)
-            offset = virtual_address & (2 ** offset_bits - 1)
-
-            # Update last used time for the page
-            page_table[vpn]['last_used'] += 1
-
-            # check if page is in main memory
-            if vpn not in main_memory:
-                page_faults += 1
-
-                # check if main memory is full
-                if len(main_memory) == addressable_physical_pages:
-                    # Find the least recently used page
-                    lru_page = min(main_memory, key=lambda x: page_table[x]['last_used'])
-
-                    # Check if there are multiple least recently used pages with the same last used time
-                    dirty_pages = [page for page in main_memory if page_table[page]['dirty']]
-                    if len(dirty_pages) > 0 and len(dirty_pages) < len(main_memory):
-                        # Replace the least recently used non-dirty page
-                        lru_page = min(dirty_pages, key=lambda x: page_table[x]['last_used'])
-                        disk_accesses += 2
-                        dirty_page_writes += 1
-                    else:
-                        # Replace the least recently used page
-                        disk_accesses += 1
-
-                    # Remove the replaced page from main memory
-                    del main_memory[lru_page]
-
-                # Load the new page into main memory
-                main_memory[vpn] = True
-
-            # check if memory access is write
-            if read_or_write == 'W':
-                page_table[vpn]['dirty'] = True
 
     data = f"Total Page Faults: {page_faults}\nTotal Disk References: {disk_accesses}\nTotal Dirty Page Writes: {dirty_page_writes}"
     return data
@@ -163,8 +148,8 @@ if __name__ == "__main__":
 
         if algorithm == 'FIFO':
             result = FIFO(processes)
-        elif algorithm == 'LRU':
-            result = LRU(processes)
+        elif algorithm == 'RAND':
+            result = RAND(processes)
         else:
             print(f"unknown algo")
             sys.exit(1)
