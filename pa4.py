@@ -18,7 +18,7 @@ class Process:
 
 class Memory:
     def __init__(self):
-        self.pages = [None] * 32  # Main memory with 32 pages
+        self.pages = [PageTableEntry() for _ in range(32)] 
         self.page_faults = 0
         self.disk_references = 0
         self.dirty_writes = 0
@@ -32,7 +32,10 @@ def simulate_page_replacement(memory, processes, algorithm):
                 virtual_address, operation = process.memory_references[time_unit]
                 virtual_address = int(virtual_address)  # Convert to integer here
 
-                virtual_page_number = virtual_address // 512
+                
+                virtual_page_number = (virtual_address >> 9) & 0b11111  # Use 0b11111 to get the 5 least significant bits
+
+
                 offset = virtual_address % 512
                 page_table_entry = process.page_table.entries[virtual_page_number]
 
@@ -45,6 +48,8 @@ def simulate_page_replacement(memory, processes, algorithm):
                         # Write the dirty page back to disk
 
                     # Load the new page into memory
+                    memory.pages[virtual_page_number] = PageTableEntry()
+                    page_table_entry = memory.pages[virtual_page_number]
                     page_table_entry.valid = True
                     page_table_entry.dirty = False
                     page_table_entry.referenced = True
@@ -61,10 +66,10 @@ def simulate_page_replacement(memory, processes, algorithm):
                 if algorithm == 'RAND':
                     victim_page = random.randint(0, 31)
                     # Replace the victim page in memory
+                    memory.pages[victim_page] = process.page_table.entries[virtual_page_number]
                     # Update the corresponding page table entry
+                    process.page_table.entries[virtual_page_number] = memory.pages[victim_page]
                     # Perform any necessary disk operations
-
-                # Implement other page replacement algorithms as needed
 
 
 
