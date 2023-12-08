@@ -1,3 +1,5 @@
+import collections
+
 class Process:
     def __init__(self, process_id):
         self.process_id = process_id
@@ -65,6 +67,65 @@ def FIFO(processes):
     data = f"Total Page Faults: {page_faults}\nTotal Disk References: {disk_accesses}\nTotal Dirty Page Writes: {dirty_page_writes}"
     return data
 
+def LRU(processes):
+    page_faults = 0
+    disk_accesses = 0
+    dirty_page_writes = 0
+
+    # System parameters
+    addressable_physical_pages = 32
+    page_size = 512  # Bytes
+    virtual_address_bits = 16
+    virtual_page_bits = 7
+    offset_bits = virtual_address_bits - virtual_page_bits
+
+    for process in processes:
+        main_memory = collections.OrderedDict()
+        page_table = {i: {'dirty': False, 'reference': False, 'last_used': 0} for i in range(2 ** virtual_page_bits)}
+
+        for access in process.memory_references:
+            process_number, virtual_address, read_or_write = access
+
+            # Extract virtual page number and offset
+            virtual_page_number = (virtual_address >> offset_bits) & (2 ** virtual_page_bits - 1)
+            offset = virtual_address & (2 ** offset_bits - 1)
+
+            # Update last used time for the page
+            page_table[virtual_page_number]['last_used'] += 1
+
+            # check if page is in main memory
+            if virtual_page_number not in main_memory:
+                page_faults += 1
+
+                # check if main memory is full
+                if len(main_memory) == addressable_physical_pages:
+                    # Find the least recently used page
+                    lru_page = min(main_memory, key=lambda x: page_table[x]['last_used'])
+
+                    # Check if there are multiple least recently used pages with the same last used time
+                    dirty_pages = [page for page in main_memory if page_table[page]['dirty']]
+                    if len(dirty_pages) > 0 and len(dirty_pages) < len(main_memory):
+                        # Replace the least recently used non-dirty page
+                        lru_page = min(dirty_pages, key=lambda x: page_table[x]['last_used'])
+                        disk_accesses += 2
+                        dirty_page_writes += 1
+                    else:
+                        # Replace the least recently used page
+                        disk_accesses += 1
+
+                    # Remove the replaced page from main memory
+                    del main_memory[lru_page]
+
+                # Load the new page into main memory
+                main_memory[virtual_page_number] = True
+
+            # check if memory access is write
+            if read_or_write == 'W':
+                page_table[virtual_page_number]['dirty'] = True
+
+    data = f"Total Page Faults: {page_faults}\nTotal Disk References: {disk_accesses}\nTotal Dirty Page Writes: {dirty_page_writes}"
+    return data
+
 
 if __name__ == "__main__":
     # Read input from the file and create processes
@@ -93,7 +154,7 @@ if __name__ == "__main__":
                 operation = fields[2]
                 processes[process_number - 1].memory_references.append((process_number, virtual_address, operation))
 
-        result = FIFO(processes)
+        result = LRU(processes)
 
         # Print the simulation results
         print(result)
