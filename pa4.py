@@ -14,59 +14,58 @@ class Memory:
         self.dirty_writes = 0
 
 
+
 def FIFO(processes):
     page_faults = 0
     disk_accesses = 0
     dirty_page_writes = 0
 
     # System parameters
+    main_memory = set()
+    page_queue = []
+    page_table = {}
     addressable_physical_pages = 32
-    page_size = 512  # Bytes
-    virtual_address_bits = 16
-    virtual_page_bits = 7
-    offset_bits = virtual_address_bits - virtual_page_bits
 
-    for process in processes:
-        main_memory = set()
-        page_queue = []
-        page_table = {i: {'dirty': False, 'reference': False} for i in range(2 ** virtual_page_bits)}
+    for access in processes:
+        process_number, virtual_address, read_or_write = access
 
-        for access in process.memory_references:
-            process_number, virtual_address, read_or_write = access
+        # Extract virtual page number
+        vpn = virtual_address >> 9 
 
-            # Extract virtual page number and offset
-            virtual_page_number = (virtual_address >> offset_bits) & (2 ** virtual_page_bits - 1)
-            offset = virtual_address & (2 ** offset_bits - 1)
+        # Check if page is in main memory
+        if vpn not in main_memory:
+            page_faults += 1
 
-            # check if page is in main memory
-            if virtual_page_number not in main_memory:
-                page_faults += 1
+            # Check if main memory is full
+            if len(main_memory) == addressable_physical_pages:
+                oldest_page = page_queue.pop(0)
+                main_memory.remove(oldest_page)
 
-                # check if main memory is full
-                if len(main_memory) == addressable_physical_pages:
-                    oldest_page = page_queue.pop(0)
-                    main_memory.remove(oldest_page)
+                # Check if the oldest page was dirty
+                if page_table[oldest_page]['dirty']:
+                    disk_accesses += 2  # if dirty plus 2
+                    dirty_page_writes += 1
+                else:
+                    disk_accesses +=1
 
-                    # check if oldest page was dirty
-                    if page_table[oldest_page]['dirty']:
-                        disk_accesses += 2
-                        dirty_page_writes += 1
-                    else:
-                        disk_accesses += 1
 
-                # load the new page into main memory
-                main_memory.add(virtual_page_number)
-                page_queue.append(virtual_page_number)
+            # Load the new page into main memory
+            main_memory.add(vpn)
+            page_queue.append(vpn)
 
-                # update page table entry
-                page_table[virtual_page_number]['reference'] = True
+            # Update page table entry
+            page_table[vpn] = {'dirty': False}
 
-            # check if memory access is write
+            # Check if memory access is write
             if read_or_write == 'W':
-                page_table[virtual_page_number]['dirty'] = True
+                page_table[vpn]['dirty'] = True
+
+    # Calculate the total number of disk accesses (including page faults and writes)
+    #total_disk_accesses = page_faults + dirty_page_writes
 
     data = f"Total Page Faults: {page_faults}\nTotal Disk References: {disk_accesses}\nTotal Dirty Page Writes: {dirty_page_writes}"
     return data
+
 
 def LRU(processes):
     page_faults = 0
@@ -88,14 +87,14 @@ def LRU(processes):
             process_number, virtual_address, read_or_write = access
 
             # Extract virtual page number and offset
-            virtual_page_number = (virtual_address >> offset_bits) & (2 ** virtual_page_bits - 1)
+            vpn = (virtual_address >> offset_bits) & (2 ** virtual_page_bits - 1)
             offset = virtual_address & (2 ** offset_bits - 1)
 
             # Update last used time for the page
-            page_table[virtual_page_number]['last_used'] += 1
+            page_table[vpn]['last_used'] += 1
 
             # check if page is in main memory
-            if virtual_page_number not in main_memory:
+            if vpn not in main_memory:
                 page_faults += 1
 
                 # check if main memory is full
@@ -118,11 +117,11 @@ def LRU(processes):
                     del main_memory[lru_page]
 
                 # Load the new page into main memory
-                main_memory[virtual_page_number] = True
+                main_memory[vpn] = True
 
             # check if memory access is write
             if read_or_write == 'W':
-                page_table[virtual_page_number]['dirty'] = True
+                page_table[vpn]['dirty'] = True
 
     data = f"Total Page Faults: {page_faults}\nTotal Disk References: {disk_accesses}\nTotal Dirty Page Writes: {dirty_page_writes}"
     return data
@@ -142,7 +141,7 @@ if __name__ == "__main__":
             input_data = file.read()
             lines = input_data.split('\n')
 
-            processes = [Process(process_id=i + 1) for i in range(128)]  # Initialize an empty list for each process
+            processes = []
             for line in lines:
                 # Skip empty lines
                 if line.strip() == "":
@@ -160,7 +159,7 @@ if __name__ == "__main__":
                 process_number = int(fields[0])
                 virtual_address = int(fields[1])
                 operation = fields[2]
-                processes[process_number - 1].memory_references.append((process_number, virtual_address, operation))
+                processes.append((process_number, virtual_address, operation))
 
         if algorithm == 'FIFO':
             result = FIFO(processes)
