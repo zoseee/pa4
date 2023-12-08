@@ -1,4 +1,5 @@
 import collections
+import sys
 
 class Process:
     def __init__(self, process_id):
@@ -128,9 +129,16 @@ def LRU(processes):
 
 
 if __name__ == "__main__":
-    # Read input from the file and create processes
+    
+    if len(sys.argv) !=3:
+        print("Incorrect Format, Execute as follows: python 'scriptname.py' data.txt <algorithm desired>")
+        sys.exit(1)
+
+    inputFile = sys.argv[1]
+    algorithm = sys.argv[2]
+
     try:
-        with open('data1.txt', 'r') as file:
+        with open(inputFile, 'r') as file:
             input_data = file.read()
             lines = input_data.split('\n')
 
@@ -154,7 +162,14 @@ if __name__ == "__main__":
                 operation = fields[2]
                 processes[process_number - 1].memory_references.append((process_number, virtual_address, operation))
 
-        result = LRU(processes)
+        if algorithm == 'FIFO':
+            result = FIFO(processes)
+        elif algorithm == 'LRU':
+            result = LRU(processes)
+        else:
+            print(f"unknown algo")
+            sys.exit(1)
+        
 
         # Print the simulation results
         print(result)
