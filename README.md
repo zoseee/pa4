@@ -60,4 +60,4 @@ The simulation keeps track of three statistics:
 
 Example:
 ```bash
-python virtual_memory_simulator.py data1.txt RAND
+python pa4.py data1.txt <algorithm>
