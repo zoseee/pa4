@@ -27,6 +27,7 @@ class Memory:
         self.disk_references = 0
         self.dirty_writes = 0
         self.page_order = deque()  # Initialize the deque for FIFO
+        self.timestamp = 0  # Initialize timestamp for LRU
 
 def simulate_page_replacement(memory, processes, algorithm):
     max_time_units = max(len(process.memory_references) for process in processes)
@@ -102,6 +103,31 @@ def simulate_page_replacement(memory, processes, algorithm):
                         oldest_page_entry.referenced = True
                         # Load the new page from disk
 
+                elif algorithm == 'LRU':
+                    memory.pages[virtual_page_number].timestamp = memory.timestamp
+                    memory.timestamp += 1
+
+                    # Find the LRU page if there are pages in the deque
+                    if memory.page_order:
+                        lru_page = min(memory.page_order, key=lambda page_num: memory.pages[page_num].timestamp)
+                        lru_page_entry = memory.pages[lru_page]
+
+                        if lru_page_entry.dirty:
+                            memory.disk_references += 1
+                            memory.dirty_writes += 1
+                            # Write the dirty page back to disk
+
+                        # Update the corresponding page table entry
+                        process.page_table.entries[virtual_page_number] = lru_page_entry
+                        lru_page_entry.valid = True
+                        lru_page_entry.dirty = False
+                        lru_page_entry.referenced = True
+                        # Load the new page from disk
+
+                        # Update the page order for LRU
+                        memory.page_order.remove(lru_page)
+                        
+
                     # Update the page order for both algorithms
                 memory.page_order.append(virtual_page_number)
 
@@ -140,7 +166,7 @@ if __name__ == "__main__":
         memory = Memory()
 
         # Simulate page replacement with a specific algorithm
-        simulate_page_replacement(memory, process_objects, algorithm='FIFO')
+        simulate_page_replacement(memory, process_objects, algorithm='LRU')
 
         # Print the simulation results
         print(f"Total Page Faults: {memory.page_faults}")
