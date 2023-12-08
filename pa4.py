@@ -1,19 +1,6 @@
 import collections
 import sys
 import random
-
-class Process:
-    def __init__(self, process_id):
-        self.process_id = process_id
-        self.memory_references = []
-
-
-class Memory:
-    def __init__(self):
-        self.page_faults = 0
-        self.disk_references = 0
-        self.dirty_writes = 0
-
 import random
 
 def RAND(processes):
