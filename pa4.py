@@ -146,9 +146,9 @@ if __name__ == "__main__":
                 operation = fields[2]
                 processes.append((process_number, virtual_address, operation))
 
-        if algorithm == 'FIFO':
+        if algorithm.upper() == 'FIFO':
             result = FIFO(processes)
-        elif algorithm == 'RAND':
+        elif algorithm.upper() == 'RAND':
             result = RAND(processes)
         else:
             print(f"unknown algo")
