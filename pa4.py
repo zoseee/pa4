@@ -1,176 +1,105 @@
-import random
-from collections import deque  # Import deque for FIFO
-
-
-random.seed(42)
-
-class PageTableEntry:
-    def __init__(self):
-        self.valid = False
-        self.dirty = False
-        self.referenced = False
-
-class PageTable:
-    def __init__(self):
-        self.entries = [PageTableEntry() for _ in range(128)]
-
 class Process:
     def __init__(self, process_id):
         self.process_id = process_id
-        self.page_table = PageTable()
         self.memory_references = []
+
 
 class Memory:
     def __init__(self):
-        self.pages = [PageTableEntry() for _ in range(32)] 
         self.page_faults = 0
         self.disk_references = 0
         self.dirty_writes = 0
-        self.page_order = deque()  # Initialize the deque for FIFO
-        self.timestamp = 0  # Initialize timestamp for LRU
-
-def simulate_page_replacement(memory, processes, algorithm):
-    max_time_units = max(len(process.memory_references) for process in processes)
-
-    for time_unit in range(max_time_units):
-        for process in processes:
-            if time_unit < len(process.memory_references):  # Check if the current process has enough references
-                virtual_address, operation = process.memory_references[time_unit]
-                virtual_address = int(virtual_address)  # Convert to integer here
-
-                
-                virtual_page_number = (virtual_address >> 9) % 32
 
 
-                offset = virtual_address % 512
-                page_table_entry = process.page_table.entries[virtual_page_number]
+def FIFO(processes):
+    page_faults = 0
+    disk_accesses = 0
+    dirty_page_writes = 0
 
-                if not page_table_entry.valid:
-                    memory.page_faults += 1
+    # System parameters
+    addressable_physical_pages = 32
+    page_size = 512  # Bytes
+    virtual_address_bits = 16
+    virtual_page_bits = 7
+    offset_bits = virtual_address_bits - virtual_page_bits
 
-                    if page_table_entry.dirty:
-                        memory.disk_references += 1
-                        memory.dirty_writes += 1
-                        # Write the dirty page back to disk
+    for process in processes:
+        main_memory = set()
+        page_queue = []
+        page_table = {i: {'dirty': False, 'reference': False} for i in range(2 ** virtual_page_bits)}
 
-                    # Load the new page into memory
-                    memory.pages[virtual_page_number] = PageTableEntry()
-                    page_table_entry = memory.pages[virtual_page_number]
-                    page_table_entry.valid = True
-                    page_table_entry.dirty = False
-                    page_table_entry.referenced = True
-                    # Load the new page from disk
+        for access in process.memory_references:
+            process_number, virtual_address, read_or_write = access
 
-                else:
-                    page_table_entry.referenced = True
+            # Extract virtual page number and offset
+            virtual_page_number = (virtual_address >> offset_bits) & (2 ** virtual_page_bits - 1)
+            offset = virtual_address & (2 ** offset_bits - 1)
 
-                # Simulate the read or write operation
-                if operation == 'W':
-                    page_table_entry.dirty = True
+            # check if page is in main memory
+            if virtual_page_number not in main_memory:
+                page_faults += 1
 
-                
-                if algorithm == 'RAND':
-                    victim_page = random.randint(0, 31)
-                    victim_page_entry = memory.pages[victim_page]
-                    
-                    if victim_page_entry.dirty:
-                        memory.disk_references += 1
-                        memory.dirty_writes += 1
-                        # Write the dirty page back to disk
+                # check if main memory is full
+                if len(main_memory) == addressable_physical_pages:
+                    oldest_page = page_queue.pop(0)
+                    main_memory.remove(oldest_page)
 
-                    # Update the corresponding page table entry
-                    process.page_table.entries[virtual_page_number] = victim_page_entry
-                    victim_page_entry.valid = True
-                    victim_page_entry.dirty = False
-                    victim_page_entry.referenced = True
-                    # Load the new page from disk
+                    # check if oldest page was dirty
+                    if page_table[oldest_page]['dirty']:
+                        disk_accesses += 2
+                        dirty_page_writes += 1
+                    else:
+                        disk_accesses += 1
 
-                elif algorithm == 'FIFO':
-                    if memory.page_order:    
+                # load the new page into main memory
+                main_memory.add(virtual_page_number)
+                page_queue.append(virtual_page_number)
 
-                        oldest_page = memory.page_order.popleft()
-                        oldest_page_entry = memory.pages[oldest_page]
+                # update page table entry
+                page_table[virtual_page_number]['reference'] = True
 
-                        if oldest_page_entry.dirty:
-                            memory.disk_references += 1
-                            memory.dirty_writes += 1
-                            # Write the dirty page back to disk
+            # check if memory access is write
+            if read_or_write == 'W':
+                page_table[virtual_page_number]['dirty'] = True
 
-                        # Update the corresponding page table entry
-                        process.page_table.entries[virtual_page_number] = oldest_page_entry
-                        oldest_page_entry.valid = True
-                        oldest_page_entry.dirty = False
-                        oldest_page_entry.referenced = True
-                        # Load the new page from disk
-
-                elif algorithm == 'LRU':
-                    memory.pages[virtual_page_number].timestamp = memory.timestamp
-                    memory.timestamp += 1
-
-                    # Find the LRU page if there are pages in the deque
-                    if memory.page_order:
-                        lru_page = min(memory.page_order, key=lambda page_num: memory.pages[page_num].timestamp)
-                        lru_page_entry = memory.pages[lru_page]
-
-                        if lru_page_entry.dirty:
-                            memory.disk_references += 1
-                            memory.dirty_writes += 1
-                            # Write the dirty page back to disk
-
-                        # Update the corresponding page table entry
-                        process.page_table.entries[virtual_page_number] = lru_page_entry
-                        lru_page_entry.valid = True
-                        lru_page_entry.dirty = False
-                        lru_page_entry.referenced = True
-                        # Load the new page from disk
-
-                        # Update the page order for LRU
-                        memory.page_order.remove(lru_page)
-                        
-
-                    # Update the page order for both algorithms
-                memory.page_order.append(virtual_page_number)
-
-
-
+    data = f"Total Page Faults: {page_faults}\nTotal Disk References: {disk_accesses}\nTotal Dirty Page Writes: {dirty_page_writes}"
+    return data
 
 
 if __name__ == "__main__":
     # Read input from the file and create processes
     try:
         with open('data1.txt', 'r') as file:
-            lines = file.readlines()
-            processes = [[] for _ in range(128)]  # Initialize an empty list for each process
+            input_data = file.read()
+            lines = input_data.split('\n')
 
+            processes = [Process(process_id=i + 1) for i in range(128)]  # Initialize an empty list for each process
             for line in lines:
-                process_id, virtual_address, operation = map(str.strip, line.split())
-                process_id = int(process_id)
-                virtual_address = int(virtual_address)
-                processes[process_id - 1].append((virtual_address, operation))
+                # Skip empty lines
+                if line.strip() == "":
+                    continue
+
+                # Split the line into components
+                fields = line.split('\t')
+
+                # Ensure the line has exactly three components
+                if len(fields) != 3:
+                    print(f"Invalid line format: {line}")
+                    continue
+
+                # Parse the components
+                process_number = int(fields[0])
+                virtual_address = int(fields[1])
+                operation = fields[2]
+                processes[process_number - 1].memory_references.append((process_number, virtual_address, operation))
+
+        result = FIFO(processes)
+
+        # Print the simulation results
+        print(result)
 
     except FileNotFoundError:
         print("File not found. Please make sure the file exists.")
-        processes = []
-
-    # ...
-
-    # Continue with the simulation if processes are successfully loaded
-    if processes:
-        # Convert the list of processes into a list of Process instances
-        process_objects = [Process(process_id=i + 1) for i in range(len(processes))]
-        for process_obj, process_data in zip(process_objects, processes):
-            process_obj.memory_references = process_data
-
-
-        # Initialize memory and processes
-        memory = Memory()
-
-        # Simulate page replacement with a specific algorithm
-        simulate_page_replacement(memory, process_objects, algorithm='LRU')
-
-        # Print the simulation results
-        print(f"Total Page Faults: {memory.page_faults}")
-        print(f"Total Disk References: {memory.disk_references}")
-        print(f"Total Dirty Page Writes: {memory.dirty_writes}")
-
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
