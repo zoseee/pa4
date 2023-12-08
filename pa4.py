@@ -28,54 +28,6 @@ class Memory:
         self.dirty_writes = 0
         self.page_order = deque()  # Initialize the deque for FIFO
 
-def fifo_algo(processed_data):
-    data = "" 
-    page_faults = 0
-    disk_accesses = 0
-    dirty_page_writes = 0
-
-    # data structures
-    main_memory = set()
-    page_queue = []
-    page_table = {}
-
-    for access in processed_data:
-        process_number, memory_reference, read_or_write = access
-
-        # calculate virtual page # and offset
-        virtual_page_number = memory_reference >> 0
-        offset = memory_reference & 0x1FF
-
-        # check if page is in main memory
-        if virtual_page_number not in main_memory:
-            page_faults += 1
-
-            # check if main memory is full
-            if len(main_memory) == addressable_physical_pages:
-                oldest_page = page_queue.pop(0)
-                main_memory.remove(oldest_page)
-
-                #check if oldest page was dirty
-                if page_table[oldest_page]['dirty']:
-                    disk_accesses += 2
-                    dirty_page_writes += 1
-                else:
-                    disk_accesses += 1
-
-            # load the new page in the main memory
-            main_memory.add(virtual_page_number)
-            page_queue.append(virtual_page_number)
-
-            #update page table enttry
-            page_table[virtual_page_number] = {'dirty': False, 'reference': True}
-
-        #check if memory access is write
-        if read_or_write == 'W':
-            page_table[virtual_page_number]['dirty'] = True
-
-    data = f"Total Page Faults: {page_faults}\nTotal Disk References: {disk_accesses}\nTotal Dirty Page Writes: {dirty_page_writes}"
-    return data
-
 def simulate_page_replacement(memory, processes, algorithm):
     max_time_units = max(len(process.memory_references) for process in processes)
 
