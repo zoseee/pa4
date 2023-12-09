@@ -1,46 +1,46 @@
-import collections
+
 import sys
 import random
+
+random.seed(20)
 
 def RAND(processes):
     page_faults = 0
     disk_accesses = 0
     dirty_page_writes = 0
-
-    memory = set() 
+    memory = set()
     page_table = {}
-    addressable_physical_pages = 32
+    address_physical = 32
 
     for access in processes:
         process_number, virtual_address, read_or_write = access
 
-        # Extract virtual page number
+        #get vpn
         vpn = virtual_address >> 9 
 
-        # Check if page is in main memory
+        #if not in main memory
         if vpn not in memory:
             page_faults += 1
             disk_accesses += 1
 
-            # Check if main memory is full
-            if len(memory) == addressable_physical_pages:
-                # Select a random victim page for replacement
+            #if memory is full
+            if len(memory) == address_physical:
+                #random page
                 victim_page = random.choice(list(memory))
-
-                # Check if the victim page was dirty
-                if page_table[victim_page]['dirty']:
-                    disk_accesses += 1  # if dirty plus 2
-                    dirty_page_writes += 1
-                
                 memory.remove(victim_page)
 
-            # Load the new page into main memory
+                #if page dirty
+                if page_table[victim_page]['dirty']:
+                    disk_accesses += 2  # if dirty plus 2
+                    dirty_page_writes += 1
+
+            #store new page
             memory.add(vpn)
 
-            # Update page table entry
+            #update page table
             page_table[vpn] = {'dirty': False}
 
-            # Check if memory access is write
+            #check if access write
             if read_or_write == 'W':
                 page_table[vpn]['dirty'] = True
 
@@ -48,51 +48,45 @@ def RAND(processes):
     data = f"Total Page Faults: {page_faults}\nTotal Disk References: {disk_accesses}\nTotal Dirty Page Writes: {dirty_page_writes}"
     return data
 
-
 def FIFO(processes):
     page_faults = 0
     disk_accesses = 0
     dirty_page_writes = 0
-
-    # System parameters
     memory = set()
     page_queue = []
     page_table = {}
-    addressable_physical_pages = 32
+    address_physical = 32
 
     for access in processes:
         process_number, virtual_address, read_or_write = access
 
-        # Extract virtual page number
+        #get vpn
         vpn = virtual_address >> 9 
 
-        # Check if page is in main memory
+        #check if in memory
         if vpn not in memory:
             page_faults += 1
             disk_accesses += 1
 
-            # Check if main memory is full
-            if len(memory) == addressable_physical_pages:
-                replaced_page = page_queue.pop(0)
-
-                #if replaced page diry
+            #check if full
+            if len(memory) == address_physical:
+                replaced_page = page_queue.pop(0) #most recent page
+                memory.remove(replaced_page)
+                #if replaced page dirty
                 if page_table[replaced_page]['dirty']:
                     disk_accesses += 1  # if dirty another disk ref
                     dirty_page_writes += 1
-
-
-                # Load the new page into main memory
-                memory.remove(replaced_page)
+                #memory.remove(replaced_page)
             else:
                 replaced_page = None
 
             memory.add(vpn)
             page_queue.append(vpn)
 
-            # Update page table entry
+            #update table
             page_table[vpn] = {'dirty': False}
 
-            # Check if memory access is write
+            #check if write
             if read_or_write == 'W':
                 page_table[vpn]['dirty'] = True
 
@@ -104,30 +98,25 @@ def LRU(processes):
     page_faults = 0
     disk_accesses = 0
     dirty_page_writes = 0
-
-    # System parameters
     memory = set()
     page_order = []
     page_table = {}
-    addressable_physical_pages = 32
+    address_physical = 32
 
     for access in processes:
         process_number, virtual_address, read_or_write = access
 
-        # Extract virtual page number
         vpn = virtual_address >> 9 
 
-        # Check if page is in main memory
         if vpn not in memory:
             page_faults += 1
             disk_accesses += 1
 
-            # Check if main memory is full
-            if len(memory) == addressable_physical_pages:
-                # Find the least recently used page
+            if len(memory) == address_physical:
+                #most recent page
                 lru_page = page_order.pop(0)
 
-                # Check if the lru_page was dirty
+                #is lru page dirty
                 if page_table[lru_page]['dirty']:
                       # if dirty another disk ref
                     if read_or_write == 'W':
@@ -136,29 +125,98 @@ def LRU(processes):
 
                 memory.remove(lru_page)
 
-            # Load the new page into main memory
+            #store new page
             memory.add(vpn)
             page_order.append(vpn)
 
-            # Update page table entry
+            #update table
             page_table[vpn] = {'dirty': False}
 
-            # Check if memory access is write
+            #check write
             if read_or_write == 'W':
                 page_table[vpn]['dirty'] = True
 
         else:
-            # If page is already in main memory, update its usage order
+            #if already in memory, update order
             page_order.remove(vpn)
             page_order.append(vpn)
 
-            # Check if memory access is write
+            #check write
             if read_or_write == 'W':
                 page_table[vpn]['dirty'] = True
 
     data = f"Total Page Faults: {page_faults}\nTotal Disk References: {disk_accesses}\nTotal Dirty Page Writes: {dirty_page_writes}"
     return data
 
+def PER(processes):
+    page_faults = 0
+    disk_accesses = 0
+    memory = set()
+    page_table = {}
+    address_physical = 32
+    reference_bit_reset = 0
+    dirty_page_writes = 0
+    for access in processes:
+        process_number, virtual_address, read_or_write = access
+
+        vpn = virtual_address >> 9 #get vpn
+
+        if vpn not in memory:
+            page_faults += 1
+            disk_accesses += 1
+
+            #if mem is full
+            if len(memory) == address_physical:
+
+                replacement_order = {
+                    #page not in use
+                    'unused': set(range(address_physical)) - set(memory),
+                    #unreferenced page (reference bit is 0) where the dirty bit is 0
+                    'unref_clean': [page for page in memory if not page_table[page]['referenced'] and not page_table[page]['dirty']],
+                    #unreferenced page (reference bit is 0) where the dirty bit is 1.
+                    'unref_dirty': [page for page in memory if not page_table[page]['referenced'] and page_table[page]['dirty']],
+                    #referenced page (reference bit is 1) where the dirty bit is 0.
+                    'ref_clean': [page for page in memory if page_table[page]['referenced'] and not page_table[page]['dirty']],
+                    #page that is both referenced (reference bit is 1) and dirty (dirty bit is 1).
+                    'ref_dirty': [page for page in memory if page_table[page]['referenced'] and page_table[page]['dirty']]
+                }
+
+                for x in ('unused', 'unref_clean', 'unref_dirty', 'ref_clean', 'ref_dirty'):
+                    pages = replacement_order[x]
+                    if pages:
+                        #replace lowest numbred page
+                        lowest_page = min(pages)
+
+                        #if lowest page is in memory and page table remove
+                    if lowest_page in memory and lowest_page in page_table:
+                        memory.remove(lowest_page)
+
+                        #check if dirty
+                        if page_table[lowest_page]['dirty']:
+                            disk_accesses += 1  # if dirty plus 2
+                            dirty_page_writes += 1
+
+                        break
+
+            #new page
+            memory.add(vpn)
+
+            #update table
+            page_table[vpn] = {'dirty': False, 'referenced': True}
+
+            # Check if memory access is write
+            if read_or_write == 'W':
+                page_table[vpn]['dirty'] = True
+
+        #reference bit logic 
+        reference_bit_reset += 1
+        if reference_bit_reset == 200: #reset to 0 every 200
+            for page in memory:
+                page_table[page]['referenced'] = False
+            reference_bit_reset = 0
+
+    data = f"Total Page Faults: {page_faults}\nTotal Disk References: {disk_accesses}\nTotal Dirty Page Writes: {dirty_page_writes}"
+    return data
 
 if __name__ == "__main__":
     
@@ -176,14 +234,14 @@ if __name__ == "__main__":
 
             processes = []
             for line in lines:
-                # Skip empty lines
+                #skip empty line
                 if line.strip() == "":
                     continue
 
-                # Split the line into components
+                #split into componentns
                 fields = line.split('\t')
 
-                # Ensure the line has exactly three components
+                #3 components atleast
                 if len(fields) != 3:
                     print(f"Invalid line format: {line}")
                     continue
@@ -200,11 +258,12 @@ if __name__ == "__main__":
             result = RAND(processes)
         elif algorithm.upper() == 'LRU':
             result = LRU(processes)
+        elif algorithm.upper() == 'PER':
+            result = PER(processes)
         else:
             print(f"unknown algo")
             sys.exit(1)
         
-
         # Print the simulation results
         print(result)
 
