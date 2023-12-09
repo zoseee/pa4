@@ -113,8 +113,8 @@ def LRU(processes):
             disk_accesses += 1
 
             if len(memory) == address_physical:
-                #most recent page
-                lru_page = page_order.pop(0)
+                #least recent page and not dirty, also takes the min as a tiebreaker
+                lru_page = min(page_order, key=lambda x: (page_table[x]['last_used'], not page_table[x]['dirty'], x))
 
                 #is lru page dirty
                 if page_table[lru_page]['dirty']:
@@ -124,13 +124,14 @@ def LRU(processes):
                         disk_accesses += 1
 
                 memory.remove(lru_page)
+                page_order.remove(lru_page)
 
             #store new page
             memory.add(vpn)
             page_order.append(vpn)
 
             #update table
-            page_table[vpn] = {'dirty': False}
+            page_table[vpn] = {'dirty': False, 'last_used': len(page_order)}
 
             #check write
             if read_or_write == 'W':
@@ -140,6 +141,7 @@ def LRU(processes):
             #if already in memory, update order
             page_order.remove(vpn)
             page_order.append(vpn)
+            page_table[vpn]['last_used'] = len(page_order)
 
             #check write
             if read_or_write == 'W':
