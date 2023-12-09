@@ -7,7 +7,7 @@ random.seed(20)
 
 def RAND(processes):
     page_faults = 0
-    disk_accesses = 0
+    disk_reference = 0
     dirty_page_writes = 0
     memory = set()
     page_table = {}
@@ -22,7 +22,7 @@ def RAND(processes):
         #if not in main memory
         if vpn not in memory:
             page_faults += 1
-            disk_accesses += 1
+            disk_reference += 1
 
             #if memory is full
             if len(memory) == address_physical:
@@ -32,7 +32,7 @@ def RAND(processes):
 
                 #if page dirty
                 if page_table[victim_page]['dirty']:
-                    disk_accesses += 2  # if dirty plus 2
+                    disk_reference += 2  # if dirty plus 2
                     dirty_page_writes += 1
 
             #store new page
@@ -46,12 +46,12 @@ def RAND(processes):
                 page_table[vpn]['dirty'] = True
 
 
-    data = f"Total Page Faults: {page_faults}\nTotal Disk References: {disk_accesses}\nTotal Dirty Page Writes: {dirty_page_writes}"
+    data = f"Total Page Faults: {page_faults}\nTotal Disk References: {disk_reference}\nTotal Dirty Page Writes: {dirty_page_writes}"
     return data
 
 def FIFO(processes):
     page_faults = 0
-    disk_accesses = 0
+    disk_reference = 0
     dirty_page_writes = 0
     memory = set()
     page_queue = []
@@ -67,7 +67,7 @@ def FIFO(processes):
         #check if in memory
         if vpn not in memory:
             page_faults += 1
-            disk_accesses += 1
+            disk_reference += 1
 
             #check if full
             if len(memory) == address_physical:
@@ -75,7 +75,7 @@ def FIFO(processes):
                 memory.remove(replaced_page)
                 #if replaced page dirty
                 if page_table[replaced_page]['dirty']:
-                    disk_accesses += 1  # if dirty another disk ref
+                    disk_reference += 1  # if dirty another disk ref
                     dirty_page_writes += 1
                 #memory.remove(replaced_page)
             else:
@@ -92,12 +92,12 @@ def FIFO(processes):
                 page_table[vpn]['dirty'] = True
 
 
-    data = f"Total Page Faults: {page_faults}\nTotal Disk References: {disk_accesses}\nTotal Dirty Page Writes: {dirty_page_writes}"
+    data = f"Total Page Faults: {page_faults}\nTotal Disk References: {disk_reference}\nTotal Dirty Page Writes: {dirty_page_writes}"
     return data
 
 def LRU(processes):
     page_faults = 0
-    disk_accesses = 0
+    disk_reference = 0
     dirty_page_writes = 0
     memory = set()
     page_order = []
@@ -111,7 +111,7 @@ def LRU(processes):
 
         if vpn not in memory:
             page_faults += 1
-            disk_accesses += 1
+            disk_reference += 1
 
             if len(memory) == address_physical:
                 #least recent page and not dirty, also takes the min as a tiebreaker
@@ -120,9 +120,9 @@ def LRU(processes):
                 #is lru page dirty
                 if page_table[lru_page]['dirty']:
                       # if dirty another disk ref
-                    if read_or_write == 'W':
-                        dirty_page_writes += 1
-                        disk_accesses += 1
+                    
+                    dirty_page_writes += 1
+                    disk_reference += 1
 
                 memory.remove(lru_page)
                 page_order.remove(lru_page)
@@ -148,12 +148,12 @@ def LRU(processes):
             if read_or_write == 'W':
                 page_table[vpn]['dirty'] = True
 
-    data = f"Total Page Faults: {page_faults}\nTotal Disk References: {disk_accesses}\nTotal Dirty Page Writes: {dirty_page_writes}"
+    data = f"Total Page Faults: {page_faults}\nTotal Disk References: {disk_reference}\nTotal Dirty Page Writes: {dirty_page_writes}"
     return data
 
 def PER(processes):
     page_faults = 0
-    disk_accesses = 0
+    disk_reference = 0
     memory = set()
     page_table = {}
     address_physical = 32
@@ -166,7 +166,7 @@ def PER(processes):
 
         if vpn not in memory:
             page_faults += 1
-            disk_accesses += 1
+            disk_reference += 1
 
             #if mem is full
             if len(memory) == address_physical:
@@ -196,7 +196,7 @@ def PER(processes):
 
                         #check if dirty
                         if page_table[lowest_page]['dirty']:
-                            disk_accesses += 1  # if dirty plus 2
+                            disk_reference += 1  # if dirty plus 2
                             dirty_page_writes += 1
 
                         break
@@ -218,12 +218,12 @@ def PER(processes):
                 page_table[page]['referenced'] = False
             reference_bit_reset = 0
 
-    data = f"Total Page Faults: {page_faults}\nTotal Disk References: {disk_accesses}\nTotal Dirty Page Writes: {dirty_page_writes}"
+    data = f"Total Page Faults: {page_faults}\nTotal Disk References: {disk_reference}\nTotal Dirty Page Writes: {dirty_page_writes}"
     return data
 
 def LFU(processes):
     page_faults = 0
-    disk_accesses = 0
+    disk_reference = 0
     dirty_page_writes = 0
     memory = set()
     page_table = {}
@@ -236,7 +236,7 @@ def LFU(processes):
 
         if vpn not in memory:
             page_faults += 1
-            disk_accesses += 1
+            disk_reference += 1
 
             if len(memory) == address_physical:
                 #find least frequent page
@@ -244,7 +244,7 @@ def LFU(processes):
 
                 #if dirty increase access and write
                 if page_table[lfu_page]['dirty']:
-                    disk_accesses += 1
+                    disk_reference += 1
                     dirty_page_writes += 1
 
                 #remove page
@@ -265,7 +265,7 @@ def LFU(processes):
             if read_or_write == 'W':
                 page_table[vpn]['dirty'] = True
 
-    data = f"Total Page Faults: {page_faults}\nTotal Disk References: {disk_accesses}\nTotal Dirty Page Writes: {dirty_page_writes}"
+    data = f"Total Page Faults: {page_faults}\nTotal Disk References: {disk_reference}\nTotal Dirty Page Writes: {dirty_page_writes}"
     return data
 
 
