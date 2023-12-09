@@ -1,6 +1,7 @@
 
 import sys
 import random
+import collections
 
 random.seed(20)
 
@@ -220,6 +221,54 @@ def PER(processes):
     data = f"Total Page Faults: {page_faults}\nTotal Disk References: {disk_accesses}\nTotal Dirty Page Writes: {dirty_page_writes}"
     return data
 
+def LFU(processes):
+    page_faults = 0
+    disk_accesses = 0
+    dirty_page_writes = 0
+    memory = set()
+    page_table = {}
+    address_physical = 32
+
+    for access in processes:
+        process_number, virtual_address, read_or_write = access
+
+        vpn = virtual_address >> 9
+
+        if vpn not in memory:
+            page_faults += 1
+            disk_accesses += 1
+
+            if len(memory) == address_physical:
+                #find least frequent page
+                lfu_page = min(memory, key=lambda x: page_table[x]['frequency'])
+
+                #if dirty increase access and write
+                if page_table[lfu_page]['dirty']:
+                    disk_accesses += 1
+                    dirty_page_writes += 1
+
+                #remove page
+                memory.remove(lfu_page)
+
+            #new page
+            memory.add(vpn)
+
+            #update page table
+            if vpn not in page_table:
+                page_table[vpn] = {'frequency': 0, 'dirty': False}  #frequency 0 and false dirty bit
+            page_table[vpn]['frequency'] += 1 #increase frequency counter
+            page_table[vpn]['dirty'] = (read_or_write == 'W')
+
+        else:
+            #if already in memory increase frequency counter 
+            page_table[vpn]['frequency'] += 1
+            if read_or_write == 'W':
+                page_table[vpn]['dirty'] = True
+
+    data = f"Total Page Faults: {page_faults}\nTotal Disk References: {disk_accesses}\nTotal Dirty Page Writes: {dirty_page_writes}"
+    return data
+
+
 if __name__ == "__main__":
     
     if len(sys.argv) !=3:
@@ -262,6 +311,8 @@ if __name__ == "__main__":
             result = LRU(processes)
         elif algorithm.upper() == 'PER':
             result = PER(processes)
+        elif algorithm.upper() == 'LFU':
+            result = LFU(processes)
         else:
             print(f"unknown algo")
             sys.exit(1)
